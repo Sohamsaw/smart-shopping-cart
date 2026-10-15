@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-amber-50/50 text-slate-900">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Shopping Cart - Express POS System</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brandYellow: '#FFDE59',
+                        brandRed: '#FF4757',
+                        brandBlue: '#2ED573',
+                        brandDark: '#1E293B',
+                        cardBorder: '#0F172A'
+                    },
+                    fontFamily: {
+                        outfit: ['"Outfit"', 'sans-serif'],
+                        jakarta: ['"Plus Jakarta Sans"', 'sans-serif']
+                    },
+                    boxShadow: {
+                        'pop-card': '6px 6px 0px #0F172A',
+                        'pop-hover': '9px 9px 0px #0F172A',
+                        'pop-active': '2px 2px 0px #0F172A',
+                        'glow-red': '0 0 20px rgba(255, 71, 87, 0.35)',
+                        'glow-yellow': '0 0 20px rgba(255, 222, 89, 0.45)'
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts & FontAwesome -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800;900&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Camera QR/Barcode Scanner & Audio Synth & Confetti -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #FFFDF0;
+            background-image: radial-gradient(#FFDE59 1.8px, transparent 1.8px), radial-gradient(#FF4757 1.8px, #FFFDF0 1.8px);
+            background-size: 50px 50px;
+            background-position: 0 0, 25px 25px;
+        }
+
+        h1, h2, h3, h4, .font-heading {
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .pop-card {
+            border: 3px solid #0F172A;
+            box-shadow: 6px 6px 0px #0F172A;
+            border-radius: 1.5rem;
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .pop-btn {
+            border: 2px solid #0F172A;
+            box-shadow: 4px 4px 0px #0F172A;
+            transition: all 0.15s ease-in-out;
+        }
+        .pop-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 6px 6px 0px #0F172A;
+        }
+        .pop-btn:active {
+            transform: translateY(2px);
+            box-shadow: 1px 1px 0px #0F172A;
+        }
+
+        /* HTML5 QR Camera Overrides */
+        #interactiveReader video {
+            object-fit: cover !important;
+            border-radius: 1.25rem;
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 380px;
+        }
+        #interactiveReader {
+            border: none !important;
+            background: transparent !important;
+            width: 100% !important;
+            height: 100% !important;
+        }
+        #interactiveReader__scan_region {
+            background: transparent !important;
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        /* Scanning Laser Line Animation */
+        @keyframes scanLaser {
+            0% { top: 8%; opacity: 0.9; }
+            50% { top: 88%; opacity: 1; }
+            100% { top: 8%; opacity: 0.9; }
+        }
+        .scan-laser-line {
+            position: absolute;
+            left: 5%;
+            right: 5%;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, #FF4757, #FFDE59, #FF4757, transparent);
+            box-shadow: 0 0 10px #FF4757;
+            animation: scanLaser 2s ease-in-out infinite;
+            z-index: 20;
+        }
+
+        /* Pulse animation for scale gauge */
+        @keyframes pulseGlow {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        .animate-pulse-glow {
+            animation: pulseGlow 2s infinite ease-in-out;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #FFF5C0;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #FF4757;
+            border-radius: 10px;
+            border: 2px solid #0F172A;
+        }
+    </style>
+</head>
+<body class="min-h-screen text-slate-900 pb-12 select-none flex flex-col justify-between">
+
+    <!-- TOP HEADER NAVBAR -->
+    <header class="bg-brandYellow border-b-4 border-slate-900 px-4 py-3.5 sticky top-0 z-40 shadow-md">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="w-12 h-12 bg-brandRed border-3 border-slate-900 rounded-2xl flex items-center justify-center text-white text-xl shadow-[3px_3px_0px_#0F172A] transform -rotate-3">
+                    <i class="fa-solid fa-cart-shopping"></i>
+                </div>
+                <div>
+                    <h1 class="font-heading text-2xl md:text-3xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                        SMART CART OS <span class="bg-brandRed text-white text-xs px-2.5 py-1 rounded-full border-2 border-slate-900 font-bold uppercase tracking-wider">v3.0 Express</span>
+                    </h1>
+                    <p class="text-xs font-bold text-slate-800">Smart Vision Scanner & Weight Check POS</p>
+                </div>
+            </div>
+
+            <!-- Page Step Navigation Indicator Bar -->
+            <div class="flex items-center gap-2 bg-white border-3 border-slate-900 rounded-2xl p-1.5 shadow-[4px_4px_0px_#0F172A] font-heading text-xs font-extrabold">
+                <button id="stepNav1" onclick="switchPage('cart')" class="bg-brandRed text-white px-3.5 py-1.5 rounded-xl border-2 border-slate-900 transition-all">
+                    1. Scan Items
+                </button>
+                <i class="fa-solid fa-chevron-right text-slate-400 text-xs"></i>
+                <button id="stepNav2" onclick="switchPage('weight')" class="bg-slate-100 text-slate-600 px-3.5 py-1.5 rounded-xl border-2 border-transparent transition-all">
+                    2. Weight Check
+                </button>
+                <i class="fa-solid fa-chevron-right text-slate-400 text-xs"></i>
+                <button id="stepNav3" onclick="switchPage('payment')" class="bg-slate-100 text-slate-600 px-3.5 py-1.5 rounded-xl border-2 border-transparent transition-all">
+                    3. Payment
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTAINER WITH PAGE VIEWS -->
+    <main class="max-w-7xl mx-auto px-4 mt-6 flex-1 w-full">
+
+        <!-- PAGE 1: SCAN ITEMS & CART INVENTORY -->
+        <div id="pageCart" class="page-view grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            
+            <!-- Left Side: Camera Scanner Viewfinder & Manual Barcode Entry -->
+            <div class="lg:col-span-5 space-y-5">
+                
+                <!-- Live Optical Vision Camera Box -->
+                <div class="pop-card bg-white p-5 relative overflow-hidden flex flex-col">
+                    <div class="flex justify-between items-center mb-3">
+                        <h2 class="font-heading text-lg font-black text-slate-900 flex items-center gap-2">
+                            <i class="fa-solid fa-camera text-brandRed"></i> Barcode Vision Feed
+                        </h2>
+                        <span id="scanStatusBadge" class="bg-amber-100 text-amber-800 border-2 border-slate-900 text-xs font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> READY
+                        </span>
+                    </div>
+
+                    <!-- Camera Viewfinder Canvas Container (Full Height Viewport) -->
+                    <div class="relative bg-slate-900 rounded-2xl border-3 border-slate-900 w-full min-h-[380px] h-[400px] flex flex-col items-center justify-center overflow-hidden flex-1">
+                        
+                        <!-- Animated Scanning Laser -->
+                        <div id="laserScannerLine" class="scan-laser-line hidden"></div>
+
+                        <!-- Full Bleed Camera Output -->
+                        <div id="interactiveReader" class="w-full h-full min-h-[380px] object-cover"></div>
+
+                        <!-- SCAN LOGO TRIGGER OVERLAY BUTTON -->
+                        <div id="scanLogoOverlay" class="absolute inset-0 z-30 bg-slate-900/90 backdrop-blur-sm flex flex-col items-center justify-center p-5 text-center transition-all">
+                            <div onclick="initCameraScanner()" class="w-20 h-20 rounded-3xl bg-brandYellow border-3 border-slate-900 flex items-center justify-center text-3xl text-slate-900 shadow-[5px_5px_0px_#0F172A] cursor-pointer hover:scale-105 active:scale-95 transition-all mb-3 animate-pulse-glow">
+                                <i class="fa-solid fa-barcode text-brandRed"></i>
+                            </div>
+                            <h3 class="font-heading text-base font-black text-white mb-1">Tap Scan Logo to Start</h3>
+                            <p class="text-xs text-slate-300 font-semibold max-w-xs mb-4">Activate full-screen camera to scan product barcodes</p>
+                            
+                            <button onclick="initCameraScanner()" class="pop-btn bg-brandRed text-white font-heading font-black text-xs px-5 py-2.5 rounded-xl flex items-center gap-2 uppercase tracking-wider">
+                                <i class="fa-solid fa-camera"></i> Open Camera Scanner
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Manual Entry & Quick Test Barcodes -->
+                    <div class="mt-4 bg-amber-100/60 border-2 border-slate-900 rounded-2xl p-3.5">
+                        <label class="block text-xs font-extrabold text-slate-800 uppercase tracking-wider mb-2">
+                            Manual Barcode Entry
+                        </label>
+                        <div class="flex gap-2 mb-2">
+                            <input type="text" id="manualCodeInput" placeholder="Enter code (101, 102...)" class="w-full px-3.5 py-2 rounded-xl border-2 border-slate-900 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-brandRed">
+                            <button onclick="handleManualScan()" class="pop-btn bg-brandRed text-white font-heading font-black px-4 py-2 rounded-xl text-xs">
+                                Add
+                            </button>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-1.5 text-xs font-bold">
+                            <span class="text-slate-600 text-[11px]">Quick Codes:</span>
+                            <button onclick="quickScan('101')" class="px-2 py-0.5 rounded-lg bg-white border border-slate-900 text-[11px] hover:bg-brandYellow">101 🍪</button>
+                            <button onclick="quickScan('102')" class="px-2 py-0.5 rounded-lg bg-white border border-slate-900 text-[11px] hover:bg-brandYellow">102 🧇</button>
+                            <button onclick="quickScan('103')" class="px-2 py-0.5 rounded-lg bg-white border border-slate-900 text-[11px] hover:bg-brandYellow">103 🍎</button>
+                            <button onclick="quickScan('104')" class="px-2 py-0.5 rounded-lg bg-white border border-slate-900 text-[11px] hover:bg-brandYellow">104 🧃</button>
+                        </div>
+                    </div>
+
+                    <!-- Last Scanned Banner -->
+                    <div id="lastScannedBox" class="mt-4 bg-emerald-100 border-2 border-slate-900 rounded-2xl p-3 flex items-center justify-between hidden">
+                        <div class="flex items-center gap-3">
+                            <span id="lastScanEmoji" class="text-2xl">🍪</span>
+                            <div>
+                                <div id="lastScanName" class="font-heading font-extrabold text-xs text-slate-900">Biscuits Pack</div>
+                                <div class="text-[11px] font-bold text-slate-600 flex gap-2">
+                                    <span>Weight: <strong id="lastScanWeight" class="text-brandRed">150g</strong></span>
+                                    <span>Price: <strong id="lastScanPrice" class="text-emerald-700">₹40.00</strong></span>
+                                </div>
+                            </div>
+                        </div>
+                        <span class="bg-emerald-500 text-white font-extrabold text-[10px] px-2 py-0.5 rounded-md border border-slate-900">SCANNED</span>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Right Side: Scanned Items Inventory Table -->
+            <div class="lg:col-span-7">
+                <div class="pop-card bg-white p-5 min-h-[460px] flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-center border-b-3 border-brandYellow pb-3 mb-4">
+                            <h2 class="font-heading text-xl font-black text-slate-900 flex items-center gap-2">
+                                <i class="fa-solid fa-basket-shopping text-brandRed"></i> Cart Items List
+                            </h2>
+                            <button onclick="triggerClearAllModal()" class="pop-btn bg-brandRed text-white text-xs font-extrabold px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+                                <i class="fa-solid fa-trash-can"></i> Clear All
+                            </button>
+                        </div>
+
+                        <!-- Scanned Items Table -->
+                        <div class="overflow-x-auto max-h-[300px] pr-1">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="bg-amber-100 text-slate-800 border-2 border-slate-900 text-xs font-black uppercase">
+                                        <th class="p-2.5 rounded-l-lg">Item</th>
+                                        <th class="p-2.5 text-center">Action</th>
+                                        <th class="p-2.5 text-right">Weight</th>
+                                        <th class="p-2.5 text-right rounded-r-lg">Price</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="cartTableBody">
+                                    <tr id="emptyCartRow">
+                                        <td colspan="4" class="text-center py-12 text-slate-500 font-bold text-xs">
+                                            <div class="text-4xl mb-2">🛒</div>
+                                            Your shopping cart is currently empty. Tap the camera scan logo on the left to begin.
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Cart Summary Banner -->
+                    <div class="mt-6 border-t-3 border-slate-900 pt-4 bg-amber-50 p-4 rounded-2xl border-2 border-slate-900">
+                        <div class="flex justify-between items-center mb-3">
+                            <div>
+                                <span class="text-xs font-extrabold text-slate-500 uppercase block">Expected Cart Weight</span>
+                                <span id="totalWeightDisplay" class="font-heading font-black text-xl text-slate-900">0 g</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-xs font-extrabold text-slate-500 uppercase block">Payable Subtotal</span>
+                                <span id="totalPriceDisplay" class="font-heading font-black text-3xl text-brandRed">₹0.00</span>
+                            </div>
+                        </div>
+
+                        <button onclick="goToWeightCheck()" class="pop-btn w-full bg-brandYellow text-slate-900 font-heading font-black text-base py-3.5 rounded-2xl flex items-center justify-center gap-2 uppercase tracking-wide">
+                            Proceed to Weight Check <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- PAGE 2: LOAD CELL WEIGHT CHECK SCREEN -->
+        <div id="pageWeight" class="page-view hidden max-w-4xl mx-auto w-full">
+            <div class="pop-card bg-white p-6 sm:p-8 flex flex-col justify-between min-h-[480px]">
+                <div>
+                    <div class="flex justify-between items-center border-b-3 border-brandYellow pb-4 mb-6">
+                        <h2 class="font-heading text-2xl font-black text-slate-900 flex items-center gap-3">
+                            <i class="fa-solid fa-scale-balanced text-brandRed"></i> STEP 2: LOAD CELL WEIGHT AUDIT
+                        </h2>
+                        <span class="bg-brandYellow border-2 border-slate-900 text-slate-900 text-xs font-extrabold px-3 py-1 rounded-full">HX711 SENSOR</span>
+                    </div>
+
+                    <p class="text-xs sm:text-sm font-bold text-slate-700 mb-6">
+                        The smart cart compares the actual physical load cell sensor weight against the database sum of scanned items to prevent unscanned items.
+                    </p>
+
+                    <!-- Weight Comparison Grid -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
+                        <!-- Scanned Sum -->
+                        <div class="bg-amber-50 border-3 border-slate-900 rounded-2xl p-5 text-center">
+                            <div class="text-xs font-black text-slate-600 uppercase tracking-wider mb-2">Scanned Catalog Weight</div>
+                            <div id="checkExpectedWeight" class="font-heading font-black text-4xl text-slate-900">0 g</div>
+                            <p class="text-xs text-slate-500 font-semibold mt-2">Sum of barcode scanned items</p>
+                        </div>
+
+                        <!-- Measured Load Cell Weight -->
+                        <div id="sensorBoxContainer" class="bg-emerald-50 border-3 border-slate-900 rounded-2xl p-5 text-center transition-all">
+                            <div class="text-xs font-black text-slate-600 uppercase tracking-wider mb-2">Measured Sensor Scale</div>
+                            <div id="checkMeasuredWeight" class="font-heading font-black text-4xl text-slate-900">0 g</div>
+                            <div id="sensorMatchBadge" class="inline-block mt-3 bg-emerald-500 text-white border-2 border-slate-900 text-xs font-black px-3.5 py-1 rounded-xl">
+                                WEIGHT MATCHED
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Mismatch Simulator Button -->
+                    <div class="bg-amber-100 border-2 border-slate-900 rounded-2xl p-4 flex flex-wrap justify-between items-center gap-3 mb-6">
+                        <div>
+                            <h4 class="font-heading font-black text-xs text-slate-900">Hardware Sensor Discrepancy Simulator</h4>
+                            <p class="text-xs font-bold text-slate-600">Simulate placing an unscanned item onto the physical cart scale</p>
+                        </div>
+                        <button id="toggleWeightMismatchBtn" onclick="toggleWeightMismatch()" class="pop-btn bg-white text-slate-900 px-4 py-2 rounded-xl text-xs font-black">
+                            Status: Perfect Match
+                        </button>
+                    </div>
+
+                    <!-- Mismatch Blocking Warning Banner -->
+                    <div id="weightErrorBanner" class="bg-brandRed text-white border-3 border-slate-900 rounded-2xl p-4 hidden mb-6 font-bold text-xs">
+                        <i class="fa-solid fa-triangle-exclamation text-base mr-2"></i>
+                        <span>Weight Discrepancy Alert! Physical scale weight does not match expected scanned sum. Navigation to payment is restricted until resolved.</span>
+                    </div>
+                </div>
+
+                <!-- Step 2 Footer Navigation -->
+                <div class="flex justify-between items-center pt-4 border-t-3 border-slate-900 gap-4">
+                    <button onclick="switchPage('cart')" class="pop-btn bg-white text-slate-900 font-heading font-extrabold px-5 py-2.5 rounded-xl text-xs">
+                        <i class="fa-solid fa-arrow-left mr-1.5"></i> Back to Items
+                    </button>
+                    <button onclick="proceedToPaymentPage()" class="pop-btn bg-brandRed text-white font-heading font-black text-sm px-7 py-3 rounded-xl flex items-center gap-2">
+                        Proceed to Payment <i class="fa-solid fa-credit-card"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- PAGE 3: PAYMENT SCREEN -->
+        <div id="pagePayment" class="page-view hidden max-w-lg mx-auto w-full">
+            <div class="pop-card bg-white p-6 sm:p-8 text-center">
+                
+                <h2 class="font-heading text-2xl font-black text-slate-900 mb-1 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-qrcode text-brandRed"></i> STEP 3: SCAN & PAY
+                </h2>
+                <p class="text-xs font-bold text-slate-600 mb-5">Pay instantly using any UPI App (GPay, PhonePe, Paytm)</p>
+
+                <!-- Amount Box -->
+                <div class="bg-brandYellow border-3 border-slate-900 rounded-2xl p-4 mb-5 flex justify-between items-center px-6">
+                    <span class="font-black text-slate-900 text-xs uppercase tracking-wider">Total Payable Amount:</span>
+                    <span id="paymentPageAmount" class="font-heading font-black text-3xl text-brandRed">₹0.00</span>
+                </div>
+
+                <!-- UPI QR Code Display -->
+                <div class="bg-amber-50 border-3 border-slate-900 rounded-2xl p-5 mb-5 flex flex-col items-center justify-center">
+                    <div class="bg-white p-3 rounded-2xl border-3 border-slate-900 max-w-[220px] shadow-[4px_4px_0px_#0F172A]">
+                        <img src="https://i.ibb.co/L9s4pL5/image-780b73.jpg" alt="UPI Payment QR Code" 
+                             onerror="this.onerror=null; this.src='https://placehold.co/300x300/FFDE59/0F172A?text=UPI+Pay+9819989801@fam';" 
+                             class="w-full h-auto rounded-xl">
+                    </div>
+                    <div class="mt-3 font-heading font-black text-slate-900 text-base">Soham Sawant</div>
+                    <div class="text-xs font-mono font-bold text-slate-700 bg-white px-3 py-1 rounded-xl border-2 border-slate-900 mt-1.5">
+                        UPI ID: <span class="text-brandRed">9819989801@fam</span>
+                    </div>
+                </div>
+
+                <button onclick="confirmPaymentSuccess()" class="pop-btn w-full bg-emerald-500 text-white font-heading font-black text-base py-3.5 px-6 rounded-2xl flex items-center justify-center gap-2 mb-3">
+                    <i class="fa-solid fa-circle-check"></i> CONFIRM PAYMENT DONE
+                </button>
+
+                <button onclick="switchPage('weight')" class="text-xs font-bold text-slate-600 hover:text-slate-900 underline">
+                    ← Back to Weight Check
+                </button>
+            </div>
+        </div>
+
+        <!-- PAGE 4: DIGITAL RECEIPT SCREEN -->
+        <div id="pageReceipt" class="page-view hidden max-w-md mx-auto w-full">
+            <div class="pop-card bg-white p-6">
+                <div class="text-center mb-5">
+                    <div class="inline-block bg-emerald-100 text-emerald-600 border-3 border-slate-900 p-3 rounded-2xl text-2xl mb-2">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+                    <h3 class="font-heading text-2xl font-black text-slate-900">PAYMENT SUCCESSFUL</h3>
+                    <p class="text-xs font-bold text-slate-600 mt-0.5">Thank you for shopping with Smart Cart OS!</p>
+                </div>
+
+                <!-- Itemized Printable Receipt -->
+                <div id="printableReceipt" class="bg-amber-50 border-3 border-slate-900 p-4 rounded-2xl mb-5 font-mono text-xs text-slate-800">
+                    <div class="text-center pb-3 mb-3 border-b-2 border-slate-900">
+                        <div class="font-heading font-black text-sm text-slate-900">SMART SHOPPING CART</div>
+                        <div class="text-[11px] text-slate-600">Receipt #: <span id="receiptNumber" class="font-bold text-slate-900">SC-88392</span></div>
+                        <div class="text-[11px] text-slate-600">Date: <span id="receiptDate" class="font-bold text-slate-900">2026-10-14</span></div>
+                        <div class="text-[11px] text-slate-600">Payee: <span class="font-bold text-slate-900">Soham Sawant</span></div>
+                    </div>
+
+                    <div id="receiptItemsList" class="space-y-1.5 mb-3">
+                        <!-- Dynamically Generated -->
+                    </div>
+
+                    <div class="pt-3 border-t-2 border-slate-900 font-bold space-y-1">
+                        <div class="flex justify-between text-slate-600 text-[11px]">
+                            <span>Total Scanned Items:</span>
+                            <span id="receiptTotalItems" class="text-slate-900">0</span>
+                        </div>
+                        <div class="flex justify-between text-slate-600 text-[11px]">
+                            <span>Verified Total Weight:</span>
+                            <span id="receiptTotalWeight" class="text-slate-900">0g</span>
+                        </div>
+                        <div class="flex justify-between text-sm text-brandRed font-heading pt-1">
+                            <span>TOTAL PAID AMOUNT:</span>
+                            <span id="receiptTotalPrice">₹0.00</span>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 pt-3 border-t-2 border-slate-900 text-center flex flex-col items-center">
+                        <i class="fa-solid fa-qrcode text-4xl text-slate-900 mb-1"></i>
+                        <span class="text-[10px] font-bold text-slate-600">SCAN AT EXIT TURNSTILE GATE</span>
+                    </div>
+                </div>
+
+                <div class="flex gap-2">
+                    <button onclick="window.print()" class="pop-btn flex-1 bg-white text-slate-900 font-extrabold py-2.5 rounded-xl text-xs">
+                        <i class="fa-solid fa-print mr-1"></i> Print Receipt
+                    </button>
+                    <button onclick="resetWholeSystem()" class="pop-btn flex-1 bg-brandYellow text-slate-900 font-heading font-black py-2.5 rounded-xl text-xs">
+                        New Cart <i class="fa-solid fa-arrow-right ml-1"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- MODAL 1: SINGLE ITEM DELETION CONFIRMATION -->
+    <div id="deleteItemModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="pop-card bg-white max-w-sm w-full p-6 text-center">
+            <div class="w-12 h-12 rounded-2xl bg-brandRed text-white border-3 border-slate-900 flex items-center justify-center text-xl mx-auto mb-3 shadow-[3px_3px_0px_#0F172A]">
+                <i class="fa-solid fa-trash-can"></i>
+            </div>
+            <h3 class="font-heading text-lg font-black text-slate-900 mb-1">Remove Item?</h3>
+            <p class="text-xs font-bold text-slate-600 mb-5">Are you sure you want to remove <span id="deleteItemName" class="text-brandRed">this item</span> from your cart?</p>
+            <div class="flex gap-3">
+                <button onclick="closeDeleteModal()" class="pop-btn flex-1 bg-slate-100 text-slate-800 font-bold py-2.5 rounded-xl text-xs">
+                    Cancel
+                </button>
+                <button onclick="confirmDeleteItem()" class="pop-btn flex-1 bg-brandRed text-white font-heading font-black py-2.5 rounded-xl text-xs">
+                    Remove
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 2: CLEAR ALL CART CONFIRMATION -->
+    <div id="clearAllModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="pop-card bg-white max-w-sm w-full p-6 text-center">
+            <div class="w-12 h-12 rounded-2xl bg-brandYellow text-slate-900 border-3 border-slate-900 flex items-center justify-center text-xl mx-auto mb-3 shadow-[3px_3px_0px_#0F172A]">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h3 class="font-heading text-lg font-black text-slate-900 mb-1">Clear Entire Cart?</h3>
+            <p class="text-xs font-bold text-slate-600 mb-5">This will remove all items from your current session.</p>
+            <div class="flex gap-3">
+                <button onclick="closeClearAllModal()" class="pop-btn flex-1 bg-slate-100 text-slate-800 font-bold py-2.5 rounded-xl text-xs">
+                    Cancel
+                </button>
+                <button onclick="confirmClearAll()" class="pop-btn flex-1 bg-brandRed text-white font-heading font-black py-2.5 rounded-xl text-xs">
+                    Clear All
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- APPLICATION JAVASCRIPT ENGINE -->
+    <script>
+        // Database Catalog
+        const productDatabase = {
+            "101": { id: "101", name: "Biscuits Pack 🍪", weight: 150, price: 40.00, emoji: "🍪" },
+            "102": { id: "102", name: "Crispy Wafers 🧇", weight: 100, price: 30.00, emoji: "🧇" },
+            "103": { id: "103", name: "Fresh Apple 🍎", weight: 200, price: 25.00, emoji: "🍎" },
+            "104": { id: "104", name: "Orange Juice Box 🧃", weight: 500, price: 50.00, emoji: "🧃" },
+            "105": { id: "105", name: "Chocolate Bar 🍫", weight: 80, price: 35.00, emoji: "🍫" },
+            "106": { id: "106", name: "Milk Carton 🥛", weight: 500, price: 60.00, emoji: "🥛" }
+        };
+
+        // Application State
+        let cart = [];
+        let simulateMismatch = false;
+        let html5QrCodeScanner = null;
+        let isScannerRunning = false;
+        let isScannerBusy = false;
+        let isScanCooldown = false; // 2-second scan delay guard flag
+        let pendingDeleteId = null;
+
+        // Tone.js Audio Synthesizer
+        function playAudioEffect(type) {
+            try {
+                if (Tone.context.state !== 'running') {
+                    Tone.start();
+                }
+                const synth = new Tone.Synth().toDestination();
+                if (type === 'add') {
+                    synth.triggerAttackRelease("C5", "8n");
+                    setTimeout(() => synth.triggerAttackRelease("G5", "8n"), 90);
+                } else if (type === 'remove') {
+                    synth.triggerAttackRelease("A4", "8n");
+                    setTimeout(() => synth.triggerAttackRelease("E4", "8n"), 90);
+                } else if (type === 'win') {
+                    synth.triggerAttackRelease("C5", "8n");
+                    setTimeout(() => synth.triggerAttackRelease("E5", "8n"), 100);
+                    setTimeout(() => synth.triggerAttackRelease("G5", "4n"), 200);
+                } else if (type === 'error') {
+                    synth.triggerAttackRelease("C3", "4n");
+                }
+            } catch (e) {
+                console.log("Audio play error:", e);
+            }
+        }
+
+        // Camera Scanner Logic
+        async function initCameraScanner() {
+            if (isScannerBusy || isScannerRunning) return;
+            isScannerBusy = true;
+
+            const overlay = document.getElementById('scanLogoOverlay');
+            const laser = document.getElementById('laserScannerLine');
+
+            try {
+                if (!html5QrCodeScanner) {
+                    html5QrCodeScanner = new Html5Qrcode("interactiveReader");
+                }
+
+                overlay.classList.add('opacity-0');
+                setTimeout(() => overlay.classList.add('hidden'), 250);
+                laser.classList.remove('hidden');
+
+                await html5QrCodeScanner.start(
+                    { facingMode: "environment" },
+                    { 
+                        fps: 10, 
+                        qrbox: (viewfinderWidth, viewfinderHeight) => {
+                            return {
+                                width: Math.floor(viewfinderWidth * 0.85),
+                                height: Math.floor(viewfinderHeight * 0.85)
+                            };
+                        }
+                    },
+                    (decodedText) => {
+                        scanProduct(decodedText);
+                    },
+                    (errorMessage) => {
+                        // Scan loop
+                    }
+                );
+
+                isScannerRunning = true;
+                document.getElementById('scanStatusBadge').innerHTML = `
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> SCANNING ACTIVE
+                `;
+                document.getElementById('scanStatusBadge').className = "bg-emerald-100 text-emerald-800 border-2 border-slate-900 text-xs font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1.5";
+            } catch (err) {
+                console.warn("Camera start error:", err);
+                alert("Camera access denied or unreadable. Please use manual code entry.");
+                overlay.classList.remove('hidden', 'opacity-0');
+                laser.classList.add('hidden');
+            } finally {
+                isScannerBusy = false;
+            }
+        }
+
+        // Core Barcode Processor with 2-second throttle delay
+        function scanProduct(code) {
+            // Prevent rapid multi-scanning within 2 seconds
+            if (isScanCooldown) return;
+            
+            isScanCooldown = true;
+
+            // Visual badge update for 2 sec cooldown
+            const statusBadge = document.getElementById('scanStatusBadge');
+            const originalBadgeHTML = statusBadge.innerHTML;
+            const originalBadgeClass = statusBadge.className;
+
+            statusBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span> WAIT 2s...`;
+            statusBadge.className = "bg-amber-100 text-amber-900 border-2 border-slate-900 text-xs font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1.5";
+
+            let product = productDatabase[code] || {
+                id: code,
+                name: "Scanned Item #" + code,
+                weight: 120,
+                price: 25.00,
+                emoji: "📦"
+            };
+
+            playAudioEffect('add');
+
+            // Show Last Scanned Banner
+            document.getElementById('lastScanEmoji').textContent = product.emoji;
+            document.getElementById('lastScanName').textContent = product.name;
+            document.getElementById('lastScanWeight').textContent = product.weight + 'g';
+            document.getElementById('lastScanPrice').textContent = '₹' + product.price.toFixed(2);
+            document.getElementById('lastScannedBox').classList.remove('hidden');
+
+            cart.push({ ...product, cartItemId: Date.now() + Math.random() });
+            updateCartDisplay();
+
+            // Re-enable scanner after 2 seconds (2000 ms)
+            setTimeout(() => {
+                isScanCooldown = false;
+                if (isScannerRunning) {
+                    statusBadge.innerHTML = `
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> SCANNING ACTIVE
+                    `;
+                    statusBadge.className = "bg-emerald-100 text-emerald-800 border-2 border-slate-900 text-xs font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1.5";
+                }
+            }, 2000);
+        }
+
+        function quickScan(code) {
+            scanProduct(code);
+        }
+
+        function handleManualScan() {
+            const input = document.getElementById('manualCodeInput');
+            if (input.value.trim()) {
+                scanProduct(input.value.trim());
+                input.value = '';
+            }
+        }
+
+        // Single Item Deletion Modal Controls
+        function triggerDeleteModal(cartItemId) {
+            const item = cart.find(i => i.cartItemId === cartItemId);
+            if (!item) return;
+            pendingDeleteId = cartItemId;
+            document.getElementById('deleteItemName').textContent = item.name;
+            document.getElementById('deleteItemModal').classList.remove('hidden');
+            document.getElementById('deleteItemModal').classList.add('flex');
+        }
+
+        function closeDeleteModal() {
+            pendingDeleteId = null;
+            document.getElementById('deleteItemModal').classList.add('hidden');
+            document.getElementById('deleteItemModal').classList.remove('flex');
+        }
+
+        function confirmDeleteItem() {
+            if (pendingDeleteId) {
+                playAudioEffect('remove');
+                cart = cart.filter(i => i.cartItemId !== pendingDeleteId);
+                updateCartDisplay();
+            }
+            closeDeleteModal();
+        }
+
+        // Clear All Modal Controls
+        function triggerClearAllModal() {
+            if (cart.length === 0) return;
+            document.getElementById('clearAllModal').classList.remove('hidden');
+            document.getElementById('clearAllModal').classList.add('flex');
+        }
+
+        function closeClearAllModal() {
+            document.getElementById('clearAllModal').classList.add('hidden');
+            document.getElementById('clearAllModal').classList.remove('flex');
+        }
+
+        function confirmClearAll() {
+            cart = [];
+            playAudioEffect('remove');
+            updateCartDisplay();
+            closeClearAllModal();
+        }
+
+        // Render Cart Items List
+        function updateCartDisplay() {
+            const tbody = document.getElementById('cartTableBody');
+
+            if (cart.length === 0) {
+                tbody.innerHTML = `
+                    <tr id="emptyCartRow">
+                        <td colspan="4" class="text-center py-12 text-slate-500 font-bold text-xs">
+                            <div class="text-4xl mb-2">🛒</div>
+                            Your shopping cart is currently empty. Tap the camera scan logo on the left to begin.
+                        </td>
+                    </tr>
+                `;
+                document.getElementById('totalWeightDisplay').textContent = '0 g';
+                document.getElementById('totalPriceDisplay').textContent = '₹0.00';
+                return;
+            }
+
+            tbody.innerHTML = '';
+            let totalWeight = 0;
+            let totalPrice = 0;
+
+            cart.forEach((item) => {
+                totalWeight += item.weight;
+                totalPrice += item.price;
+
+                const tr = document.createElement('tr');
+                tr.className = "border-b-2 border-slate-200 font-bold hover:bg-amber-50 transition";
+                tr.innerHTML = `
+                    <td class="p-2.5 flex items-center gap-2">
+                        <span class="text-xl">${item.emoji}</span>
+                        <div>
+                            <div class="font-heading font-extrabold text-xs text-slate-900">${item.name}</div>
+                            <div class="text-[10px] text-slate-500">Code: #${item.id}</div>
+                        </div>
+                    </td>
+                    <td class="p-2.5 text-center">
+                        <button onclick="triggerDeleteModal(${item.cartItemId})" 
+                                class="pop-btn bg-brandRed text-white w-7 h-7 rounded-lg text-xs font-black flex items-center justify-center mx-auto">
+                            ✕
+                        </button>
+                    </td>
+                    <td class="p-2.5 text-right font-mono text-xs text-slate-800">${item.weight}g</td>
+                    <td class="p-2.5 text-right font-heading font-black text-xs text-brandRed">₹${item.price.toFixed(2)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('totalWeightDisplay').textContent = totalWeight >= 1000 ? (totalWeight / 1000).toFixed(2) + ' kg' : totalWeight + ' g';
+            document.getElementById('totalPriceDisplay').textContent = '₹' + totalPrice.toFixed(2);
+        }
+
+        // Multi-Page Switcher
+        function switchPage(pageKey) {
+            document.querySelectorAll('.page-view').forEach(p => p.classList.add('hidden'));
+
+            if (pageKey === 'cart') {
+                document.getElementById('pageCart').classList.remove('hidden');
+                updateNavStyles(1);
+            } else if (pageKey === 'weight') {
+                document.getElementById('pageWeight').classList.remove('hidden');
+                updateNavStyles(2);
+            } else if (pageKey === 'payment') {
+                document.getElementById('pagePayment').classList.remove('hidden');
+                updateNavStyles(3);
+            } else if (pageKey === 'receipt') {
+                document.getElementById('pageReceipt').classList.remove('hidden');
+            }
+        }
+
+        function updateNavStyles(activeStep) {
+            const btn1 = document.getElementById('stepNav1');
+            const btn2 = document.getElementById('stepNav2');
+            const btn3 = document.getElementById('stepNav3');
+
+            btn1.className = activeStep === 1 ? "bg-brandRed text-white px-3.5 py-1.5 rounded-xl border-2 border-slate-900 transition-all shadow-[2px_2px_0px_#0F172A]" : "bg-slate-100 text-slate-600 px-3.5 py-1.5 rounded-xl border-2 border-transparent transition-all";
+            btn2.className = activeStep === 2 ? "bg-brandRed text-white px-3.5 py-1.5 rounded-xl border-2 border-slate-900 transition-all shadow-[2px_2px_0px_#0F172A]" : "bg-slate-100 text-slate-600 px-3.5 py-1.5 rounded-xl border-2 border-transparent transition-all";
+            btn3.className = activeStep === 3 ? "bg-brandRed text-white px-3.5 py-1.5 rounded-xl border-2 border-slate-900 transition-all shadow-[2px_2px_0px_#0F172A]" : "bg-slate-100 text-slate-600 px-3.5 py-1.5 rounded-xl border-2 border-transparent transition-all";
+        }
+
+        function goToWeightCheck() {
+            if (cart.length === 0) {
+                alert("Your cart is empty! Scan items first.");
+                return;
+            }
+
+            const expectedWeight = cart.reduce((sum, item) => sum + item.weight, 0);
+            document.getElementById('checkExpectedWeight').textContent = expectedWeight + ' g';
+
+            const measuredDisplay = document.getElementById('checkMeasuredWeight');
+            const badge = document.getElementById('sensorMatchBadge');
+            const container = document.getElementById('sensorBoxContainer');
+            const errBanner = document.getElementById('weightErrorBanner');
+
+            if (simulateMismatch) {
+                const mismatchedWeight = expectedWeight + 250;
+                measuredDisplay.textContent = mismatchedWeight + ' g';
+                badge.textContent = "DISCREPANCY (+250g)";
+                badge.className = "inline-block mt-3 bg-brandRed text-white border-2 border-slate-900 text-xs font-black px-3.5 py-1 rounded-xl";
+                container.className = "bg-red-50 border-3 border-slate-900 rounded-2xl p-5 text-center transition-all";
+                errBanner.classList.remove('hidden');
+            } else {
+                measuredDisplay.textContent = expectedWeight + ' g';
+                badge.textContent = "WEIGHT MATCHED";
+                badge.className = "inline-block mt-3 bg-emerald-500 text-white border-2 border-slate-900 text-xs font-black px-3.5 py-1 rounded-xl";
+                container.className = "bg-emerald-50 border-3 border-slate-900 rounded-2xl p-5 text-center transition-all";
+                errBanner.classList.add('hidden');
+            }
+
+            switchPage('weight');
+        }
+
+        function toggleWeightMismatch() {
+            simulateMismatch = !simulateMismatch;
+            const btn = document.getElementById('toggleWeightMismatchBtn');
+
+            if (simulateMismatch) {
+                btn.textContent = "Status: Discrepancy Error";
+                btn.className = "pop-btn bg-brandRed text-white px-4 py-2 rounded-xl text-xs font-black";
+                playAudioEffect('error');
+            } else {
+                btn.textContent = "Status: Perfect Match";
+                btn.className = "pop-btn bg-white text-slate-900 px-4 py-2 rounded-xl text-xs font-black";
+                playAudioEffect('add');
+            }
+
+            goToWeightCheck();
+        }
+
+        // Strict Weight Navigation Guard
+        function proceedToPaymentPage() {
+            if (simulateMismatch) {
+                playAudioEffect('error');
+                alert("Weight Discrepancy Detected! You cannot proceed to payment until physical scale weight matches scanned items.");
+                return;
+            }
+
+            const totalPrice = cart.reduce((sum, item) => sum + item.price, 0);
+            document.getElementById('paymentPageAmount').textContent = '₹' + totalPrice.toFixed(2);
+
+            switchPage('payment');
+        }
+
+        function confirmPaymentSuccess() {
+            playAudioEffect('win');
+
+            if (window.confetti) {
+                confetti({
+                    particleCount: 150,
+                    spread: 80,
+                    origin: { y: 0.6 }
+                });
+            }
+
+            const receiptItemsList = document.getElementById('receiptItemsList');
+            receiptItemsList.innerHTML = '';
+
+            let totalWeight = 0;
+            let totalPrice = 0;
+
+            cart.forEach(item => {
+                totalWeight += item.weight;
+                totalPrice += item.price;
+
+                const itemRow = document.createElement('div');
+                itemRow.className = "flex justify-between text-[11px] font-bold";
+                itemRow.innerHTML = `
+                    <span>${item.name}</span>
+                    <span class="text-brandRed">₹${item.price.toFixed(2)}</span>
+                `;
+                receiptItemsList.appendChild(itemRow);
+            });
+
+            document.getElementById('receiptNumber').textContent = 'SC-' + Math.floor(100000 + Math.random() * 900000);
+            document.getElementById('receiptDate').textContent = new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString();
+            document.getElementById('receiptTotalItems').textContent = cart.length;
+            document.getElementById('receiptTotalWeight').textContent = totalWeight + 'g';
+            document.getElementById('receiptTotalPrice').textContent = '₹' + totalPrice.toFixed(2);
+
+            switchPage('receipt');
+        }
+
+        function resetWholeSystem() {
+            cart = [];
+            simulateMismatch = false;
+            updateCartDisplay();
+            switchPage('cart');
+            document.getElementById('lastScannedBox').classList.add('hidden');
+        }
+
+        window.onload = function() {
+            updateCartDisplay();
+        };
+    </script>
+</body>
+</html>
